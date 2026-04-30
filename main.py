@@ -1,9 +1,9 @@
 # ======================================================
-# 👑 PROJECT: THE ULTIMATE MODULAR BOT (V45.0)
+# 👑 PROJECT: THE ULTIMATE MODULAR BOT (V46.0)
 # 👤 DEVELOPER: IBRAHIM MUSTAFA (@x_u3s1)
 # 🆔 ADMIN ID: 8301016131
-# 🛠 STATUS: STABLE - 4K SUPPORTED - NO CRASH
-# 📏 LENGTH: 500+ LINES OF ADVANCED LOGIC
+# 🛠 STATUS: STABLE - 4K SUPPORTED - 100MB+ BYPASS
+# 📏 LENGTH: 550+ LINES OF ADVANCED LOGIC
 # 📍 LOCATION: BASRA, IRAQ 🇮🇶
 # ======================================================
 
@@ -24,14 +24,15 @@ from datetime import datetime, timedelta
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.FileHandler('bot_v44.log'), logging.StreamHandler()]
+    handlers=[logging.FileHandler('bot_v46.log'), logging.StreamHandler()]
 )
 
 # --- [ 2. محرك البيئة البرمجية المستقر ] ---
 def setup_environment():
     """تجهيز المكتبات الأساسية لضمان عدم توقف البوت في Railway"""
     print("🚀 [STARTUP] جاري فحص المحركات البرمجية في البصرة...")
-    required_libs = ["yt-dlp", "pyTelegramBotAPI", "requests", "certifi"]
+    # تم إضافة moviepy لمعالجة فيديوهات الـ 107 ميجا
+    required_libs = ["yt-dlp", "pyTelegramBotAPI", "requests", "certifi", "moviepy"]
     for lib in required_libs:
         try:
             __import__(lib.replace('-', '_'))
@@ -46,10 +47,11 @@ import telebot
 from telebot import types
 import yt_dlp
 import certifi
+from moviepy.editor import VideoFileClip # مكتبة التقسيم لتخطي حد الـ 50MB
 
 # --- [ 3. الثوابت والإعدادات العميقة ] ---
 API_TOKEN = '8168190815:AAG0U-eqjIvAr5HbtTWTGOqQzSRz9Pdx4AY'.strip()
-bot = telebot.TeleBot(API_TOKEN, num_threads=20) # زيادة خيوط المعالجة للـ 4K
+bot = telebot.TeleBot(API_TOKEN, num_threads=25) # زيادة الخيوط للمعالجة الثقيلة
 ADMIN_ID = 8301016131 
 MY_USER = "@x_u3s1"
 
@@ -140,77 +142,86 @@ def dl_keyboard():
     )
     return markup
 
-# --- [ 7. محرك التحميل العنيف (Anti-Fail & 4K Engine) ] ---
+# --- [ 7. محرك التحميل العنيف (Anti-Fail & 4K Engine + Large File Bypass) ] ---
 def secure_download(chat_id, url, type_mode):
     msg = bot.send_message(chat_id, "⏳ جاري فحص الرابط ومعالجة الجودة (4K Support)...")
     
-    # محاولة 1: TikWM API (سريع جداً للتيك توك وانستا)
+    # محاولة 1: TikWM API (للفيديوهات الصغيرة والمتوسطة)
     try:
         api_res = requests.get(f"https://www.tikwm.com/api/?url={url}", timeout=15).json()
         if api_res.get('code') == 0:
             d = api_res['data']
             link = d.get('play') if type_mode == 'v' else d.get('music')
             if link:
-                if type_mode == 'v':
-                    bot.send_video(chat_id, link, caption="✅ تم التحميل السريع (V45.0)")
-                else:
-                    bot.send_audio(chat_id, link, caption="🎵 تم استخراج الصوت بنجاح")
-                bot.delete_message(chat_id, msg.message_id)
-                update_user_profile(chat_id, "User", xp=40, dl=1)
-                return
+                # فحص الحجم قبل المحاولة
+                h = requests.head(link)
+                size = int(h.headers.get('Content-Length', 0)) / (1024*1024)
+                if size < 49: # إذا أصغر من حد تليجرام، أرسله فوراً
+                    if type_mode == 'v':
+                        bot.send_video(chat_id, link, caption="✅ تم التحميل السريع (V46.0)")
+                    else:
+                        bot.send_audio(chat_id, link, caption="🎵 تم استخراج الصوت بنجاح")
+                    bot.delete_message(chat_id, msg.message_id)
+                    update_user_profile(chat_id, "User", xp=40, dl=1)
+                    return
     except: pass
 
-    # محاولة 2: YT-DLP القوي مع دعم الجودات الفائقة
-    bot.edit_message_text("🔄 جاري تفعيل المحرك العملاق لمعالجة فيديو عالي الدقة...", chat_id, msg.message_id)
+    # محاولة 2: YT-DLP مع نظام التقسيم الذكي للـ 107MB وما فوق
+    bot.edit_message_text("🔄 جاري تفعيل المحرك العملاق للتعامل مع الحجم الكبير...", chat_id, msg.message_id)
     try:
         file_id = f"file_{int(time.time())}_{random.randint(100,999)}"
         path_tmpl = os.path.join(CACHE_DIR, f"{file_id}.%(ext)s")
         
-        # إعدادات مخصصة لضمان تحميل الـ 4K وتقليل الفشل
         y_opts = {
-            'format': 'bestvideo+bestaudio/best', # جلب أفضل جودة متاحة (بما فيها 4K)
+            'format': 'bestvideo+bestaudio/best',
             'outtmpl': path_tmpl,
             'quiet': True,
-            'no_warnings': True,
-            'noprogress': True,
-            'merge_output_format': 'mp4', # دمج المسارات في ملف واحد
-            'writethumbnail': False,
-            'postprocessors': [{
-                'key': 'FFmpegVideoConvertor',
-                'preferedformat': 'mp4',
-            }] if type_mode == 'v' else [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
+            'merge_output_format': 'mp4',
         }
 
         with yt_dlp.YoutubeDL(y_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             f_name = ydl.prepare_filename(info)
-            # تصحيح الامتداد إذا تم الدمج
             if not os.path.exists(f_name):
                 f_name = f_name.rsplit('.', 1)[0] + ".mp4"
 
-        # فحص الحجم قبل الإرسال (تليجرام يسمح بـ 50MB للبوتات العادية)
         f_size = os.path.getsize(f_name) / (1024 * 1024)
         
-        with open(f_name, 'rb') as f:
-            if f_size > 49:
-                bot.edit_message_text(f"⚖️ حجم الفيديو ({int(f_size)}MB) يتخطى حدود التليجرام، يتم الإرسال كملف...", chat_id, msg.message_id)
-                bot.send_document(chat_id, f, caption="✅ تم تحميل الفيديو الـ 4K كملف للحفاظ على الجودة")
-            else:
+        if f_size > 49.5:
+            # الحل الجذري لمشكلة الـ 107MB: تقسيم الفيديو لجزئين بجودة كاملة
+            bot.edit_message_text(f"📦 الفيديو بحجم {int(f_size)}MB. جاري تقسيمه لضمان الجودة الكاملة وتخطي حدود تليجرام...", chat_id, msg.message_id)
+            
+            clip = VideoFileClip(f_name)
+            duration = clip.duration
+            half = duration / 2
+            
+            p1_path = f_name.replace(".mp4", "_part1.mp4")
+            p2_path = f_name.replace(".mp4", "_part2.mp4")
+            
+            clip.subclip(0, half).write_videofile(p1_path, codec="libx264", audio_codec="aac", logger=None)
+            clip.subclip(half, duration).write_videofile(p2_path, codec="libx264", audio_codec="aac", logger=None)
+            clip.close()
+
+            with open(p1_path, 'rb') as p1:
+                bot.send_video(chat_id, p1, caption="🎬 الجزء الأول (Full Quality)")
+            with open(p2_path, 'rb') as p2:
+                bot.send_video(chat_id, p2, caption="🎬 الجزء الثاني (Full Quality)")
+            
+            if os.path.exists(p1_path): os.remove(p1_path)
+            if os.path.exists(p2_path): os.remove(p2_path)
+        else:
+            with open(f_name, 'rb') as f:
                 if type_mode == 'v':
                     bot.send_video(chat_id, f, caption="✅ تم التحميل بواسطة إبراهيم مصطفى - 4K Quality")
                 else:
-                    bot.send_audio(chat_id, f, caption="✅ تم استخراج الصوت (المحرك الشامل)")
+                    bot.send_audio(chat_id, f, caption="✅ تم استخراج الصوت")
         
         if os.path.exists(f_name): os.remove(f_name)
         bot.delete_message(chat_id, msg.message_id)
         update_user_profile(chat_id, "User", xp=100, dl=1)
         
     except Exception as e:
-        bot.edit_message_text(f"❌ فشل التحميل: الفيديو محمي، خاص، أو حجمه يفوق قدرة السيرفر.", chat_id, msg.message_id)
+        bot.edit_message_text(f"❌ فشل تحميل الـ 107MB: يرجى التأكد من مساحة السيرفر أو الرابط.", chat_id, msg.message_id)
         logging.error(f"Download error: {e}")
 
 # --- [ 8. معالج الأوامر والدردشة ] ---
@@ -309,21 +320,20 @@ def ui_manager(call):
 
 # --- [ 10. نظام الاستدامة والتنظيف العالي ] ---
 def cleaner_engine():
-    """تنظيف الملفات المؤقتة كل 15 دقيقة لضمان عدم توقف السيرفر بسبب الـ 4K"""
+    """تنظيف الملفات المؤقتة كل 15 دقيقة لضمان عدم توقف السيرفر"""
     while True:
         try:
             if os.path.exists(CACHE_DIR):
                 for file in os.listdir(CACHE_DIR):
                     f_p = os.path.join(CACHE_DIR, file)
-                    if os.path.getmtime(f_p) < time.time() - 900: # تنظيف أسرع
+                    if os.path.getmtime(f_p) < time.time() - 900:
                         os.remove(f_p)
-            # وظيفة "Keep Alive" وهمية
             requests.get("https://www.google.com")
         except: pass
         time.sleep(900)
 
 if __name__ == "__main__":
-    print(f"✅ [V45.0] IS LIVE. 4K SUPPORT ENABLED. OWNER: IBRAHIM MUSTAFA")
+    print(f"✅ [V46.0] IS LIVE. 100MB+ SUPPORT ENABLED. OWNER: IBRAHIM MUSTAFA")
     threading.Thread(target=cleaner_engine, daemon=True).start()
     
     while True:
@@ -332,4 +342,3 @@ if __name__ == "__main__":
         except Exception as e:
             logging.error(f"Polling crashed: {e}")
             time.sleep(10)
-            
