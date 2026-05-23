@@ -1,8 +1,8 @@
 # ======================================================
-# 👑 PROJECT: THE ULTIMATE MODULAR BOT (V45.0)
+# 👑 PROJECT: THE ULTIMATE MODULAR BOT (V45.0 - ENHANCED)
 # 👤 DEVELOPER: IBRAHIM MUSTAFA (@x_u3s1)
 # 🆔 ADMIN ID: 8301016131
-# 🛠 STATUS: STABLE - 4K SUPPORTED - NO CRASH
+# 🛠 STATUS: STABLE - 4K SUPPORTED - NO CRASH - ANTI BAN
 # 📏 LENGTH: 500+ LINES OF ADVANCED LOGIC
 # 📍 LOCATION: BASRA, IRAQ 🇮🇶
 # ======================================================
@@ -31,6 +31,13 @@ logging.basicConfig(
 def setup_environment():
     """تجهيز المكتبات الأساسية لضمان عدم توقف البوت في Railway"""
     print("🚀 [STARTUP] جاري فحص المحركات البرمجية في البصرة...")
+    
+    # تحديث yt-dlp تلقائياً لتفادي أخطاء تيك توك الجديدة (إضافة جديدة)
+    try:
+        subprocess.call([sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp", "--quiet"])
+    except Exception as e:
+        logging.warning(f"Auto-upgrade skipped: {e}")
+
     required_libs = ["yt-dlp", "pyTelegramBotAPI", "requests", "certifi"]
     for lib in required_libs:
         try:
@@ -140,6 +147,15 @@ def dl_keyboard():
     )
     return markup
 
+# --- [ لوحة الإدارة والإذاعة المضافة للمطور ] ---
+def admin_keyboard():
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton("📢 إذاعة للجميع", callback_data="admin_broadcast"),
+        types.InlineKeyboardButton("🔙 رجوع للقائمة", callback_data="ui_back")
+    )
+    return markup
+
 # --- [ 7. محرك التحميل العنيف (Anti-Fail & 4K Engine) ] ---
 def secure_download(chat_id, url, type_mode):
     msg = bot.send_message(chat_id, "⏳ جاري فحص الرابط ومعالجة الجودة (4K Support)...")
@@ -166,7 +182,7 @@ def secure_download(chat_id, url, type_mode):
         file_id = f"file_{int(time.time())}_{random.randint(100,999)}"
         path_tmpl = os.path.join(CACHE_DIR, f"{file_id}.%(ext)s")
         
-        # إعدادات مخصصة لضمان تحميل الـ 4K وتقليل الفشل
+        # إعدادات مخصصة لضمان تحميل الـ 4K وتقليل الفشل (تم دعمها بـ Anti-Ban headers)
         y_opts = {
             'format': 'bestvideo+bestaudio/best', # جلب أفضل جودة متاحة (بما فيها 4K)
             'outtmpl': path_tmpl,
@@ -175,6 +191,11 @@ def secure_download(chat_id, url, type_mode):
             'noprogress': True,
             'merge_output_format': 'mp4', # دمج المسارات في ملف واحد
             'writethumbnail': False,
+            'geo_bypass': True, # تخطي القيود الجغرافية
+            'http_headers': {    # رأسيات التخطي لحماية السيرفر من الحظر
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            },
             'postprocessors': [{
                 'key': 'FFmpegVideoConvertor',
                 'preferedformat': 'mp4',
@@ -232,10 +253,34 @@ def start_handler(m):
     )
     bot.send_message(m.chat.id, welcome, reply_markup=main_keyboard())
 
+# --- [ أمر الإدارة الخاص بالمطور ] ---
+@bot.message_handler(commands=['admin'])
+def admin_handler(m):
+    if m.from_user.id == ADMIN_ID:
+        bot.send_message(m.chat.id, "🛠 أهلاً بك يا مطور البصرة، هذه لوحة التحكم الخاصة بك:", reply_markup=admin_keyboard())
+    else:
+        bot.reply_to(m, "⚠️ هذا الأمر مخصص للمطور الأساسي فقط.")
+
 @bot.message_handler(func=lambda m: m.text and "http" in m.text)
 def link_handler(m):
     current_urls[m.from_user.id] = m.text
     bot.reply_to(m, "🗳 تم استلام الرابط، اختر ماذا تريد أن أفعل به:", reply_markup=dl_keyboard())
+
+# --- [ دالة تنفيذ الإذاعة ] ---
+def execute_broadcast(m):
+    users = load_data("users")
+    success = 0
+    fail = 0
+    status = bot.send_message(m.chat.id, f"⏳ جاري الإرسال إلى {len(users)} مستخدم...")
+    
+    for uid in users:
+        try:
+            bot.send_message(uid, f"📢 رسالة إدارية:\n\n{m.text}")
+            success += 1
+        except:
+            fail += 1
+            
+    bot.edit_message_text(f"✅ تمت الإذاعة بنجاح!\n🟢 وصل: {success}\n🔴 فشل: {fail}", m.chat.id, status.message_id)
 
 # --- [ 9. معالج الأزرار التفاعلية ] ---
 @bot.callback_query_handler(func=lambda call: True)
@@ -307,6 +352,14 @@ def ui_manager(call):
     elif call.data == "ui_owner":
         bot.edit_message_text(f"👨‍💻 المطور: إبراهيم مصطفى\n🆔 اليوزر: {MY_USER}\n📍 السكن: البصرة 🌴\n\nبوت التحميل الأقوى لعام 2026.", cid, mid, reply_markup=main_keyboard())
 
+    # --- [ زر الإذاعة للمطور ] ---
+    elif call.data == "admin_broadcast":
+        if call.from_user.id == ADMIN_ID:
+            msg = bot.send_message(cid, "📩 أرسل نص الرسالة التي تريد إرسالها لجميع المشتركين الآن:")
+            bot.register_next_step_handler(msg, execute_broadcast)
+        else:
+            bot.answer_callback_query(call.id, "⚠️ غير مسموح لك.", show_alert=True)
+
 # --- [ 10. نظام الاستدامة والتنظيف العالي ] ---
 def cleaner_engine():
     """تنظيف الملفات المؤقتة كل 15 دقيقة لضمان عدم توقف السيرفر بسبب الـ 4K"""
@@ -323,7 +376,8 @@ def cleaner_engine():
         time.sleep(900)
 
 if __name__ == "__main__":
-    print(f"✅ [V45.0] IS LIVE. 4K SUPPORT ENABLED. OWNER: IBRAHIM MUSTAFA")
+    bot.remove_webhook() # تنظيف خطأ 409
+    print(f"✅ [V45.1] IS LIVE. 4K SUPPORT ENABLED. OWNER: IBRAHIM MUSTAFA")
     threading.Thread(target=cleaner_engine, daemon=True).start()
     
     while True:
@@ -332,4 +386,4 @@ if __name__ == "__main__":
         except Exception as e:
             logging.error(f"Polling crashed: {e}")
             time.sleep(10)
-            
+        
